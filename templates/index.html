@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PRAVAH AI - Multi-Factor Flash Flood & Landslide Decision Platform</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <meta name="initial-region" content="{{ initial_region or 'alaknanda' }}">
+  <!-- Leaflet Map CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <!-- Chart.js for Live Hydrographs -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="brand-section">
+      <div class="logo-badge">PRAVAH AI</div>
+      <div class="title-container">
+        <h1>
+          Flash Flood Early Warning System
+          <span class="live-indicator">
+            <span class="pulse-dot"></span>
+            MULTI-FACTOR PREDICTIVE ENGINE
+          </span>
+        </h1>
+        <div class="tagline">5-Factor Physics-Guided Hydro-Geotechnical Decision Platform &bull; Team HydroAegis (IIT BHU)</div>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <!-- Himalayan Region Selector Dropdown -->
+      <div class="region-selector-wrapper">
+        <label for="select-himalayan-basin" class="region-select-label">🏔️ Select Region:</label>
+        <select id="select-himalayan-basin" class="region-select-dropdown" onchange="onRegionChange()">
+          <option value="alaknanda">Alaknanda &amp; Rishi Ganga (Chamoli, Uttarakhand)</option>
+          <option value="mandakini">Mandakini River (Kedarnath, Uttarakhand)</option>
+          <option value="bhagirathi">Bhagirathi River (Uttarkashi, Uttarakhand)</option>
+          <option value="beas">Beas River (Kullu-Manali, Himachal Pradesh)</option>
+          <option value="teesta">Teesta River (North Sikkim, Sikkim)</option>
+          <option value="chenab">Chenab River (Kishtwar, Jammu &amp; Kashmir)</option>
+        </select>
+      </div>
+
+      <!-- Live IoT Telemetry Stream Toggle -->
+      <button class="nav-btn live-iot-btn" id="btn-toggle-iot-stream" onclick="toggleIoTStream()" title="Toggle between manual scenario simulation and live LoRaWAN IoT telemetry streaming">
+        <span class="pulse-dot-live" id="iot-pulse-dot"></span>
+        <span id="iot-btn-text">📡 Live IoT Stream</span>
+      </button>
+
+      <!-- IoT Station Network Modal Button -->
+      <button class="nav-btn iot-sensors-btn" onclick="openIoTSensorsModal()" title="View live telemetry packets, battery health, and 3-depth soil probes across headwater stations">
+        <span>📶 IoT Sensors (<span id="station-count-badge">3 Active</span>)</span>
+      </button>
+
+      <button class="nav-btn overview-matrix-btn" onclick="openAllRegionsModal()" title="View live risk comparison across all 6 monitored Himalayan river basins">
+        <span>🌐 Regional Risk Matrix</span>
+      </button>
+
+      <button class="nav-btn benchmark-btn" onclick="openHistoricalModal()">
+        <span>🏛️ Hindcast Suite</span>
+      </button>
+      <div class="team-badge">
+        <strong>SIH26192 Reference</strong>
+      </div>
+      <div class="time-display" id="live-clock">UTC 00:00:00 | IST 00:00:00</div>
+    </div>
+  </header>
+
+  <!-- HIMALAYAN REGION CONTEXT & 3-HORIZON LEAD TIME RIBBON -->
+  <div class="region-context-ribbon">
+    <div class="ribbon-left">
+      <div class="region-badge-pill">
+        <span>📍 ACTIVE BASIN:</span>
+        <strong id="ribbon-basin-name">Alaknanda &amp; Rishi Ganga Basin</strong>
+      </div>
+      <div class="region-meta-item">
+        <span>District:</span> <strong id="ribbon-district">Chamoli, Uttarakhand</strong>
+      </div>
+      <div class="region-meta-item">
+        <span>Elevation:</span> <strong id="ribbon-elevation">1,050m - 5,200m</strong>
+      </div>
+      <div class="region-meta-item">
+        <span>Geology:</span> <strong id="ribbon-geology">Crystalline Gneiss &amp; Colluvial Debris</strong>
+      </div>
+    </div>
+
+    <div class="ribbon-right">
+      <span class="horizon-title">⚡ LEAD TIME HORIZON:</span>
+      <div class="horizon-switch-group">
+        <button class="horizon-btn" id="btn-horizon-180" onclick="switchHorizon(180)" title="Tracks satellite cloud-top cooling and 48-hr soil pre-saturation to give 3 hours advance notice before storm hits.">
+          🔭 180 min (Nowcast Watch)
+        </button>
+        <button class="horizon-btn" id="btn-horizon-90" onclick="switchHorizon(90)" title="Detects headwater rainfall influx and Green-Ampt infiltration collapse, triggering early village warning.">
+          ⚡ 90 min (Runoff Trigger)
+        </button>
+        <button class="horizon-btn active" id="btn-horizon-30" onclick="switchHorizon(30)" title="Direct river channel flood crest wave routing down gorge confluences to settlement bridges.">
+          🌊 30 min (Wave Evacuation)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPOUND PROBABILITY & DECISION ATTRIBUTION HERO BAR -->
+  <section class="risk-hero-bar">
+    <!-- Probability Gauge -->
+    <div class="prob-gauge-container">
+      <div class="prob-gauge-header">
+        <span class="gauge-title">⚡ COMPOUND FLASH FLOOD &amp; LANDSLIDE CHANCE</span>
+        <span class="gauge-badge" id="risk-verdict-badge">SAFE (LOW RISK)</span>
+      </div>
+      <div class="prob-meter-wrapper">
+        <div class="prob-bar-background">
+          <div class="prob-bar-fill" id="prob-bar-fill" style="width: 8%;"></div>
+        </div>
+        <div class="prob-percentage-text" id="prob-percentage-text">8.2%</div>
+      </div>
+      <div class="sub-probs-row">
+        <div class="sub-prob-item">Runoff Hazard: <strong id="sub-prob-runoff">0.0%</strong></div>
+        <div class="sub-prob-item">Slope Collapse: <strong id="sub-prob-slope">5.0%</strong></div>
+        <div class="sub-prob-item">Debris Damming: <strong id="sub-prob-debris">0.0%</strong></div>
+        <div class="sub-prob-item">Fluvial Inundation: <strong id="sub-prob-hydraulic">12.5%</strong></div>
+      </div>
+    </div>
+
+    <!-- Explainable Decision Attribution Box -->
+    <div class="attribution-container">
+      <div class="attribution-title">
+        <span>🔍 Why Did The Model Make This Decision?</span>
+        <span style="font-size: 10px; color: var(--text-muted); font-weight: normal;">Live Sensitivity Attribution</span>
+      </div>
+      <div class="attribution-content">
+        <div class="attribution-row">
+          <span class="attrib-tag primary">Primary Driver</span>
+          <span class="attrib-text" id="attrib-primary">Low-intensity precipitation fully buffered by infiltration capacity.</span>
+        </div>
+        <div class="attribution-row">
+          <span class="attrib-tag secondary">Secondary Trigger</span>
+          <span class="attrib-text" id="attrib-secondary">Sub-critical channel velocity and dry hillslope regime.</span>
+        </div>
+        <div class="attribution-row">
+          <span class="attrib-tag buffer">Natural Buffer</span>
+          <span class="attrib-text" id="attrib-buffer">High soil absorption and structural regolith shear strength prevent mass movement.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MULTI-TIERED ACTIONABLE EARLY WARNING & PGNN AI CONCORDANCE BAR -->
+  <section class="multitier-leadtime-bar">
+    <div class="leadtime-master-card">
+      <div class="leadtime-master-left">
+        <div class="leadtime-badge-row">
+          <span class="sih-mandate-badge">🎯 SIH26192 CORE DELIVERABLE</span>
+          <span class="leadtime-status-pill" id="leadtime-status-pill">ACTIONABLE EVACUATION WINDOW ACTIVE</span>
+        </div>
+        <div class="countdown-display">
+          <span class="countdown-clock" id="countdown-clock">165 MIN</span>
+          <span class="countdown-subtext" id="countdown-subtext">(2h 45m advance evacuation time)</span>
+        </div>
+      </div>
+
+      <!-- 3 Scientific Tiers Breakdown -->
+      <div class="leadtime-tiers-grid">
+        <div class="tier-card" id="card-tier-1">
+          <div class="tier-header">
+            <span class="tier-tag tier-1-tag">TIER 1 &bull; 120-180m</span>
+            <span class="tier-val" id="tier1-val">150 min</span>
+          </div>
+          <div class="tier-name">Atmospheric Doppler Radar Nowcast</div>
+          <div class="tier-sub" id="tier1-status">Convective cloudburst cluster advance tracking</div>
+        </div>
+
+        <div class="tier-card" id="card-tier-2">
+          <div class="tier-header">
+            <span class="tier-tag tier-2-tag">TIER 2 &bull; 60-90m</span>
+            <span class="tier-val" id="tier2-val">72 min</span>
+          </div>
+          <div class="tier-name">Catchment Saturation Deficit Lag</div>
+          <div class="tier-sub" id="tier2-status">Soil moisture absorption before surface overland flow</div>
+        </div>
+
+        <div class="tier-card" id="card-tier-3">
+          <div class="tier-header">
+            <span class="tier-tag tier-3-tag">TIER 3 &bull; 15-45m</span>
+            <span class="tier-val" id="tier3-val">28 min</span>
+          </div>
+          <div class="tier-name">Gorge In-Stream Wave Travel Lag</div>
+          <div class="tier-sub" id="tier3-status">Kinematic celerity routing to primary settlement</div>
+        </div>
+      </div>
+
+      <!-- Physics-Guided AI (PGNN) Hybrid Concordance Widget -->
+      <div class="pgnn-concordance-card">
+        <div class="pgnn-title">
+          <span>🧠 Physics-Guided AI (PGNN)</span>
+          <span class="pgnn-samples-tag">650 Historical Events</span>
+        </div>
+        <div class="pgnn-stats-row">
+          <div class="pgnn-stat">
+            <span class="pgnn-stat-lbl">Physics Ground Truth:</span>
+            <strong id="pgnn-physics-pct">8.2%</strong>
+          </div>
+          <div class="pgnn-stat">
+            <span class="pgnn-stat-lbl">ML Pattern Prob:</span>
+            <strong id="pgnn-ml-pct">11.0%</strong>
+          </div>
+          <div class="pgnn-stat">
+            <span class="pgnn-stat-lbl">Fused Hybrid Risk:</span>
+            <strong id="pgnn-fused-pct" style="color: var(--accent-cyan);">9.3%</strong>
+          </div>
+        </div>
+        <div class="pgnn-concordance-bar">
+          <span class="pgnn-badge" id="pgnn-concordance-badge">
+            VERY HIGH (Physics &amp; ML Strongly Agree)
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- MAIN DASHBOARD CONTENT -->
+  <main>
+
+    <!-- LEFT COLUMN: ALL EXPOSED FACTORS WITH SCIENTIFIC CONTROLS -->
+    <div class="left-column">
+      
+      <!-- Dynamic Basin Scenarios & Historical Benchmarks -->
+      <div class="card">
+        <div class="card-title">
+          <span id="scenarios-card-title">⚡ Basin Disaster Presets</span>
+          <span class="card-title-icon">📂</span>
+        </div>
+        <!-- Dynamically rendered based on active basin -->
+        <div class="scenario-selector" id="basin-scenarios-container">
+          <!-- Rendered dynamically via JavaScript -->
+        </div>
+
+        <div class="cross-basin-toggle-container">
+          <button class="cross-basin-toggle-btn" id="btn-toggle-cross-basin" onclick="toggleCrossBasinBenchmarks()">
+            <span id="cross-basin-icon">▶</span>
+            <span>All-India Historical Disaster Benchmarks (5 Landmark Cases)</span>
+          </button>
+        </div>
+
+        <div class="scenario-selector cross-basin-drawer" id="cross-basin-scenarios-container" style="display: none;">
+          <button class="scenario-btn" id="btn-chamoli" onclick="loadScenario('chamoli_2021')">
+            🔴 <strong>Chamoli 2021</strong> (105 mm/hr &bull; 2,150 m&sup3;/s Breach)
+          </button>
+          <button class="scenario-btn" id="btn-kedarnath" onclick="loadScenario('kedarnath_2013')">
+            🔴 <strong>Kedarnath 2013</strong> (85 mm/hr &bull; Chorabari GLOF)
+          </button>
+          <button class="scenario-btn" id="btn-wayanad" onclick="loadScenario('wayanad_2024')">
+            🔴 <strong>Wayanad 2024</strong> (90 mm/hr &bull; Saprolite Liquefaction)
+          </button>
+          <button class="scenario-btn" id="btn-teesta" onclick="loadScenario('teesta_2023')">
+            🔴 <strong>Teesta GLOF 2023</strong> (65 mm/hr &bull; 3,950 m&sup3;/s Wave)
+          </button>
+          <button class="scenario-btn" id="btn-amarnath" onclick="loadScenario('amarnath_2022')">
+            🔴 <strong>Amarnath 2022</strong> (120 mm/hr &bull; Scree Gorge Surge)
+          </button>
+        </div>
+      </div>
+
+      <!-- FACTOR ACCORDIONS -->
+      <div class="factors-scroll-container">
+        
+        <!-- Factor 1: Precipitation & Storm Dynamics -->
+        <div class="card factor-section-card">
+          <div class="card-title">
+            <span>🌧️ Factor 1: Rainfall &amp; Storm Dynamics</span>
+            <span class="badge-stage">STAGE 1</span>
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label">
+              <span class="factor-label-name">Rainfall Intensity (I) <span class="factor-tooltip" title="Hourly precipitation rate measured by AWS or Doppler Weather Radar. Determines rate of water influx into the catchment.">ℹ️</span></span>
+              <span class="slider-val" id="val-rainfall">45 mm/hr</span>
+            </div>
+            <input type="range" id="slider-rainfall" min="0" max="200" step="1" value="45" oninput="onFactorChange()">
+            <div class="factor-help-text">High values (>70 mm/hr) overwhelm soil infiltration and trigger instant Hortonian overland flash runoff.</div>
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label">
+              <span class="factor-label-name">Storm Duration (T) <span class="factor-tooltip" title="Total continuous duration of precipitation. Prolonged storms fully saturate soil profiles.">ℹ️</span></span>
+              <span class="slider-val" id="val-duration">2.0 hrs</span>
+            </div>
+            <input type="range" id="slider-duration" min="0.5" max="24.0" step="0.5" value="2.0" oninput="onFactorChange()">
+            <div class="factor-help-text">Long duration storms raise the water table, driving slopes towards Dunne saturation excess.</div>
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label">
+              <span class="factor-label-name">Catchment Area (A) <span class="factor-tooltip" title="Upstream drainage basin surface area that funnels runoff into the primary mountain channel.">ℹ️</span></span>
+              <span class="slider-val" id="val-area">85 km&sup2;</span>
+            </div>
+            <input type="range" id="slider-area" min="10" max="250" step="5" value="85" oninput="onFactorChange()">
+          </div>
+        </div>
+
+        <!-- Factor 2: Subsurface Soil & Infiltration (Green-Ampt) -->
+        <div class="card factor-section-card">
+          <div class="card-title">
+            <span>🌱 Factor 2: Soil Matrix &amp; Infiltration</span>
+            <span class="badge-stage">STAGE 2</span>
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label">
+              <span class="factor-label-name">Antecedent Moisture (&theta;<sub>i</sub>) <span class="factor-tooltip" title="Pre-storm volumetric soil wetness. Higher initial moisture leaves less pore space for absorption.">ℹ️</span></span>
+              <span class="slider-val" id="val-moisture">0.25 (57% Sat)</span>
+            </div>
+            <input type="range" id="slider-moisture" min="0.08" max="0.44" step="0.01" value="0.25" oninput="onFactorChange()">
+            <div class="factor-help-text">High antecedent saturation (AMC III) prevents infiltration, generating near 100% surface runoff.</div>
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label">
+              <span class="factor-label-name">Hydraulic Conductivity (K<sub>sat</sub>) <span class="factor-tooltip" title="Rate at which water transmits through fully saturated soil pores.">ℹ️</span></span>
+              <span class="slider-val" id="val-ksat">14.5 mm/hr</span>
+            </div>
+            <input type="range" id="slider-ksat" min="2.0" max="45.0" step="0.5" value="14.5" oninput="onFactorChange()">
+            <div class="factor-help-text">Higher conductivity increases absorption, delaying flash runoff, but accelerates perched water table buildup.</div>
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label">
+              <span class="factor-label-name">Matric Suction Head (&psi;) <span class="factor-tooltip" title="Capillary suction drawing water down into dry soil pores across the wetting front.">ℹ️</span></span>
+              <span class="slider-val" id="val-psi">110 mm</span>
+            </div>
+            <input type="range" id="slider-psi" min="20" max="220" step="5" value="110" oninput="onFactorChange()">
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label">
+              <span class="factor-label-name">Soil Regolith Depth (z) <span class="factor-tooltip" title="Depth of colluvial soil mantle above impervious crystalline bedrock.">ℹ️</span></span>
+              <span class="slider-val" id="val-soildepth">2.2 m</span>
+            </div>
+            <input type="range" id="slider-soildepth" min="0.6" max="4.5" step="0.1" value="2.2" oninput="onFactorChange()">
+          </div>
+        </div>
+
+        <!-- Factor 3: Basin Geomechanics & Slope Stability (Infinite Slope) -->
+        <div class="card factor-section-card">
+          <div class="card-title">
+            <span>⛰️ Factor 3: Hillslope Geomechanics</span>
+            <span class="badge-stage">STAGE 3</span>
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label">
+              <span class="factor-label-name">Hillslope Gradient (&beta;) <span class="factor-tooltip" title="Dominant terrain slope angle. Gravitational shear stress increases proportionally with sin(beta).">ℹ️</span></span>
+              <span class="slider-val" id="val-slopebeta">35.0&deg;</span>
+            </div>
+            <input type="range" id="slider-slopebeta" min="15.0" max="55.0" step="1.0" value="35.0" oninput="onFactorChange()">
+            <div class="factor-help-text">Slopes &gt; 32&deg; are highly susceptible to rotational and planar debris detachment upon saturation.</div>
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label">
+              <span class="factor-label-name">Effective Cohesion (c') <span class="factor-tooltip" title="Internal shear resistance from root cohesion and soil particle bonding (kPa).">ℹ️</span></span>
+              <span class="slider-val" id="val-cprime">8.5 kPa</span>
+            </div>
+            <input type="range" id="slider-cprime" min="1.0" max="22.0" step="0.5" value="8.5" oninput="onFactorChange()">
+            <div class="factor-help-text">Low cohesion (colluvium / loose scree) leads to rapid slope failure (FS &lt; 1.0) during storms.</div>
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label">
+              <span class="factor-label-name">Internal Friction Angle (&phi;') <span class="factor-tooltip" title="Frictional angle of granular soil grains resisting downslope slippage.">ℹ️</span></span>
+              <span class="slider-val" id="val-phiprime">32.0&deg;</span>
+            </div>
+            <input type="range" id="slider-phiprime" min="20.0" max="42.0" step="1.0" value="32.0" oninput="onFactorChange()">
+          </div>
+        </div>
+
+        <!-- Factor 4 & 5: Fluvial Hydraulics & Debris (Manning) -->
+        <div class="card factor-section-card">
+          <div class="card-title">
+            <span>🌊 Factor 4 &amp; 5: Channel Hydraulics &amp; Debris</span>
+            <span class="badge-stage">STAGE 4 &bull; 5</span>
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label">
+              <span class="factor-label-name">Manning Roughness (n) <span class="factor-tooltip" title="Channel bed roughness coefficient. Boulder-strewn mountain torrents range from 0.040 to 0.065.">ℹ️</span></span>
+              <span class="slider-val" id="val-manningn">0.048</span>
+            </div>
+            <input type="range" id="slider-manningn" min="0.025" max="0.075" step="0.002" value="0.048" oninput="onFactorChange()">
+            <div class="factor-help-text">Higher roughness slows velocity but increases flood stage depth H in confined gorges.</div>
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label">
+              <span class="factor-label-name">Channel Bed Slope (S<sub>0</sub>) <span class="factor-tooltip" title="Longitudinal riverbed gradient driving gravitational stream velocity.">ℹ️</span></span>
+              <span class="slider-val" id="val-bedslope">0.024 (2.4%)</span>
+            </div>
+            <input type="range" id="slider-bedslope" min="0.008" max="0.055" step="0.002" value="0.024" oninput="onFactorChange()">
+          </div>
+
+          <div class="slider-group">
+            <div class="slider-label">
+              <span class="factor-label-name">Gorge Bottom Width (b) <span class="factor-tooltip" title="Conveyance cross-section bottom width in meters.">ℹ️</span></span>
+              <span class="slider-val" id="val-channelb">28.0 m</span>
+            </div>
+            <input type="range" id="slider-channelb" min="10.0" max="60.0" step="2.0" value="28.0" oninput="onFactorChange()">
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Real-time Physical Metrics Pill Grid -->
+      <div class="card" style="margin-top: 12px;">
+        <div class="card-title">
+          <span>📊 Physical Engine Telemetry</span>
+          <span class="card-title-icon">⚙️</span>
+        </div>
+        <div class="metrics-grid">
+          <div class="metric-pill">
+            <div class="metric-pill-label">Green-Ampt Runoff</div>
+            <div class="metric-pill-value" id="val-runoff">0.0 mm/hr</div>
+          </div>
+          <div class="metric-pill">
+            <div class="metric-pill-label">Slope Factor of Safety</div>
+            <div class="metric-pill-value" id="val-fs">1.45 (Stable)</div>
+          </div>
+          <div class="metric-pill">
+            <div class="metric-pill-label">Chen &amp; Young Trigger</div>
+            <div class="metric-pill-value" id="val-chen-young">48.2 mm/hr</div>
+          </div>
+          <div class="metric-pill">
+            <div class="metric-pill-label">Debris Bulge Factor</div>
+            <div class="metric-pill-value" id="val-bulge">1.0x (Clear)</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- CENTER COLUMN: MAP & HYDROGRAPH -->
+    <div class="center-column">
+      
+      <!-- Leaflet Map Container -->
+      <div class="card map-container" style="padding: 0;">
+        <div id="catchment-map"></div>
+        <div class="map-overlay-badge" id="map-status-badge">
+          Overall Status: <strong style="color: var(--color-safe);">NORMAL MONITORING</strong>
+        </div>
+      </div>
+
+      <!-- Live Hydrograph Chart -->
+      <div class="card hydrograph-card">
+        <div class="card-title" style="margin-bottom: 6px;">
+          <span>📈 Real-Time Dynamic Stage-Discharge Hydrograph Q(t)</span>
+          <span style="font-size: 11px; color: var(--text-secondary);" id="peak-q-badge">Peak Q: 35.0 m&sup3;/s</span>
+        </div>
+        <div style="position: relative; height: 165px; width: 100%;">
+          <canvas id="hydrographChart"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT COLUMN: THE 2 OFFICIAL DELIVERABLES -->
+    <div class="right-column">
+      
+      <!-- DELIVERABLE 2: ACTIONABLE LEAD TIME COUNTDOWN -->
+      <div class="card lead-time-card" id="lead-time-card">
+        <div class="lead-time-title">Deliverable 2: Actionable Evacuation Lead Time</div>
+        <div class="lead-time-clock" id="clock-lead-time">112 MIN</div>
+        <div class="lead-time-status" id="lead-time-status-desc">
+          Hydraulic wave crest predicted to reach <strong>Raini Village</strong>
+        </div>
+        <button class="dispatch-btn" onclick="openBroadcastModal()">
+          <span>📢 DISSEMINATE CAP v1.2 ALERT</span>
+        </button>
+      </div>
+
+      <!-- DELIVERABLE 1: HYPER-LOCAL VILLAGE FORECASTS -->
+      <div class="card" style="flex: 1;">
+        <div class="card-title">
+          <span>🏘️ Deliverable 1: Village Inundation Forecasts</span>
+          <span class="card-title-icon">📍</span>
+        </div>
+        <div class="villages-container" id="villages-list">
+          <!-- Rendered dynamically via JavaScript -->
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- HISTORICAL DISASTER VALIDATION BENCHMARKS MODAL -->
+  <div class="modal-backdrop" id="historicalModal">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <div>
+          <h3>🏛️ Historical Disaster Hindcasting &amp; Model Validation Suite</h3>
+          <div style="font-size: 11px; color: var(--text-secondary); margin-top: 3px;">
+            Scientific calibration against CWC, GSI &amp; IMD recorded disaster events across Indian mountain basins
+          </div>
+        </div>
+        <button class="close-btn" onclick="closeHistoricalModal()">&times;</button>
+      </div>
+
+      <!-- Top Summary Metrics Badges -->
+      <div class="historical-summary-grid">
+        <div class="summary-metric-card">
+          <div class="summary-metric-num" id="hist-mape">6.85%</div>
+          <div class="summary-metric-label">Peak Discharge MAPE</div>
+        </div>
+        <div class="summary-metric-card">
+          <div class="summary-metric-num" id="hist-nse">0.984</div>
+          <div class="summary-metric-label">Nash-Sutcliffe Efficiency (NSE)</div>
+        </div>
+        <div class="summary-metric-card">
+          <div class="summary-metric-num" id="hist-slope-acc">100%</div>
+          <div class="summary-metric-label">Slope Failure Trigger Accuracy</div>
+        </div>
+        <div class="summary-metric-card">
+          <div class="summary-metric-num" id="hist-lead-err">&plusmn;5.8 min</div>
+          <div class="summary-metric-label">Mean Lead Time Precision</div>
+        </div>
+      </div>
+
+      <!-- Disaster Events Comparison Table -->
+      <div class="table-wrapper">
+        <table class="historical-table">
+          <thead>
+            <tr>
+              <th>Historical Disaster Event</th>
+              <th>Location &amp; Terrain</th>
+              <th>Observed Q<sub>peak</sub></th>
+              <th>Predicted Q<sub>peak</sub></th>
+              <th>Observed Stage</th>
+              <th>Predicted Stage</th>
+              <th>Slope Failure (FS)</th>
+              <th>Error %</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="historical-tbody">
+            <!-- Populated dynamically via JS from /api/historical-validation -->
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- CAP EMERGENCY BROADCAST MODAL -->
+  <div class="modal-backdrop" id="broadcastModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>🚨 Common Alerting Protocol (CAP v1.2) Dispatch</h3>
+        <button class="close-btn" onclick="closeBroadcastModal()">&times;</button>
+      </div>
+
+      <div class="broadcast-box">
+        <strong>Audio Siren Script (Hindi / Regional Broadcast):</strong>
+        <p id="modal-hindi-text">लोड हो रहा है...</p>
+      </div>
+
+      <div class="broadcast-box">
+        <strong>Audio Siren Script (English / SDRF VHF Radio):</strong>
+        <p id="modal-english-text">Loading alert text...</p>
+      </div>
+
+      <div style="margin-bottom: 6px; font-size: 11px; color: var(--text-secondary);">
+        <strong>CAP v1.2 XML Payload (National NDMA / USDMA Gateway):</strong>
+      </div>
+      <pre class="cap-xml" id="modal-xml-text"></pre>
+    </div>
+  </div>
+
+  <!-- ALL-BASIN REGIONAL SURVEILLANCE MATRIX MODAL -->
+  <div class="modal-backdrop" id="allRegionsModal">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <div>
+          <h3>🌐 Himalayan Multi-Basin Surveillance &amp; Risk Matrix</h3>
+          <div style="font-size: 11px; color: var(--text-secondary); margin-top: 3px;">
+            Real-time cross-regional geotechnical equilibrium, compound flash flood probability, and active district warning status
+          </div>
+        </div>
+        <button class="close-btn" onclick="closeAllRegionsModal()">&times;</button>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="historical-table">
+          <thead>
+            <tr>
+              <th>Himalayan Basin</th>
+              <th>State &amp; District</th>
+              <th>Elevation Range</th>
+              <th>Dominant Bedrock</th>
+              <th>Critical Settlement</th>
+              <th>Current Risk (P<sub>FF</sub>)</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="all-regions-tbody">
+            <!-- Populated dynamically via JS from /api/regions-overview -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <!-- LIVE IOT SENSORS & TELEMETRY NETWORK MODAL -->
+  <div class="modal-backdrop" id="iotSensorsModal">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <div>
+          <h3>📶 In-Situ IoT Headwater Sensor Network (LoRaWAN 865 MHz)</h3>
+          <div style="font-size: 11px; color: var(--text-secondary); margin-top: 3px;">
+            Autonomous solar telemetry stations &bull; 3-Depth FDR soil capacitance probes &bull; Edge QA anomaly validation
+          </div>
+        </div>
+        <button class="close-btn" onclick="closeIoTSensorsModal()">&times;</button>
+      </div>
+
+      <!-- IoT Network Summary Bar -->
+      <div class="iot-network-summary-bar">
+        <div class="iot-sum-item">
+          <span class="iot-sum-lbl">Active Nodes:</span>
+          <strong id="iot-modal-nodes-count">3 / 3 Online</strong>
+        </div>
+        <div class="iot-sum-item">
+          <span class="iot-sum-lbl">Peak Rainfall Influx:</span>
+          <strong id="iot-modal-peak-rain">4.8 mm/hr</strong>
+        </div>
+        <div class="iot-sum-item">
+          <span class="iot-sum-lbl">Mean Profile Moisture:</span>
+          <strong id="iot-modal-mean-moist">22.4%</strong>
+        </div>
+        <div class="iot-sum-item">
+          <span class="iot-sum-lbl">Gorge River Stage:</span>
+          <strong id="iot-modal-river-stage">1.25 m</strong>
+        </div>
+        <div class="iot-sum-item">
+          <button class="small-action-btn" onclick="injectTestLoRaPacket()" title="Simulate edge node sending raw packet to /api/iot/telemetry">
+            ⚡ Inject Test LoRa Packet
+          </button>
+        </div>
+      </div>
+
+      <!-- Stations Cards Grid (Rendered dynamically via JS) -->
+      <div class="iot-stations-grid" id="iot-stations-grid">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div>PRAVAH AI &bull; Ministry of Home Affairs / NDRF SIH26192 Reference Implementation</div>
+    <div>Vectorized Green-Ampt &bull; Infinite Slope Geotechnical Equilibrium &bull; Debris Bulging &bull; Manning Hydraulic Routing</div>
+  </footer>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <!-- Application JS -->
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

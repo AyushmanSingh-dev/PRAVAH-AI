@@ -1,0 +1,61 @@
+# Ignore scratch images, reports, and binaries
+*.png
+*.jpg
+*.jpeg
+*.pdf
+*.docx
+*.tex
+*.sdf
+*.dae
+
+# Ignore root HTML files (keep templates/)
+/*.html
+/*.txt
+!/requirements.txt
+!/README.md
+
+# Ignore scratch generator scripts in root
+/generate_*.py
+/render_*.py
+/inspect_*.py
+/test_p*.py
+/test_sec*.py
+/test_view*.py
+/test_tree*.py
+/test_radial*.py
+/test_move*.py
+/test_borders*.py
+/test_dashboard_full_factors.py
+/test_dashboard_multi_regions.py
+/test_dashboard_ui.py
+!tests/
+!tests/*.py
+tune_*.py
+uniform_*.py
+perfect_*.py
+s2_*.py
+s3_*.py
+update_*.py
+diagnose_*.py
+expand_*.py
+find_*.py
+fix_*.py
+gate_*.py
+get_*.py
+prepare_*.py
+
+# Ignore external submodules and IDE files
+gazebo2am/
+.serena/
+.vscode/
+images/
+
+# Python runtime artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.log
+
+# Ignore joblib except trained model
+*.joblib
+!engine/models/pravah_ml_model.joblib
