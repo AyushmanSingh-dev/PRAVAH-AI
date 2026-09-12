@@ -541,6 +541,7 @@ class PravahPhysicsEngine:
                 "predicted_stage_m": local_depth,
                 "predicted_discharge_m3s": round(local_q, 1),
                 "in_stream_travel_lag_min": wave_lag_minutes,
+                "evacuation_lead_time_min": wave_lag_minutes,
                 "actionable_evacuation_lead_time_min": multi_tier_lead["composite_evacuation_countdown_min"],
                 "status": status,
                 "status_color": color,

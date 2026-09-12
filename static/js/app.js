@@ -725,7 +725,7 @@ function renderVillageCards(settlements) {
       <div class="village-details">
         <span>Stage: <b>${s.predicted_stage_m}m</b> / ${s.danger_depth_m}m</span>
         <span>Peak Q: <b>${s.predicted_discharge_m3s} m³/s</b></span>
-        <span>Lead Time: <b>${s.evacuation_lead_time_min}m</b></span>
+        <span>Wave Arrival: <b>${s.in_stream_travel_lag_min || s.evacuation_lead_time_min || 15}m</b></span>
       </div>
       <div class="village-action">
         &bull; Action: ${s.action_order} (Pop: ${s.population.toLocaleString()})
